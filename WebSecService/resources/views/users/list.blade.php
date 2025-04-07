@@ -6,6 +6,9 @@
         <h1>Users</h1>
     </div>
 </div>
+@can('create_users')
+    <a href="{{ route('users_create') }}" class="btn btn-success">Add User</a>
+@endcan
 <form>
     <div class="row">
         <div class="col col-sm-2">
@@ -25,7 +28,7 @@
     <table class="table">
       <thead>
         <tr>
-          <th scope="col">#</th>
+          <th scope="col">ID</th>
           <th scope="col">Name</th>
           <th scope="col">Email</th>
           <th scope="col">Roles</th>
@@ -44,13 +47,16 @@
         </td>
         <td scope="col">
           @can('edit_users')
-          <a class="btn btn-primary" href='{{route('users_edit', [$user->id])}}'>Edit</a>
+            <a class="btn btn-primary" href='{{route('users_edit', [$user->id])}}'>Edit</a>
           @endcan
           @can('admin_users')
-          <a class="btn btn-primary" href='{{route('edit_password', [$user->id])}}'>Change Password</a>
+            <a class="btn btn-primary" href='{{route('edit_password', [$user->id])}}'>Change Password</a>
           @endcan
           @can('delete_users')
-          <a class="btn btn-danger" href='{{route('users_delete', [$user->id])}}'>Delete</a>
+            <a class="btn btn-danger" href='{{route('users_delete', [$user->id])}}'>Delete</a>
+          @endcan
+          @can('add_credit')
+            <a class="btn btn-success" href='{{route('add_credit', [$user->id])}}'>Add Credit</a>
           @endcan
         </td>
       </tr>

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use App\Models\Purchase;
 use DB;
 use Artisan;
 
@@ -17,12 +18,30 @@ class UsersController extends Controller {
 
 	use ValidatesRequests;
 
+
+
     public function list(Request $request) {
-        if(!auth()->user()->hasPermissionTo('show_users'))abort(401);
+        if (!auth()->user()->hasPermissionTo('show_users')) {
+            abort(401);
+        }
+    
+        $authUser = auth()->user();
+    
         $query = User::select('*');
-        $query->when($request->keywords, 
-        fn($q)=> $q->where("name", "like", "%$request->keywords%"));
+    
+        if ($authUser->hasRole('Employee')) {
+            $query->whereHas('roles', function ($q) {
+                $q->where('name', 'Customer');
+            });
+        }
+    
+        // Apply search filter if keywords are provided
+        $query->when($request->keywords, function ($q) use ($request) {
+            $q->where("name", "like", "%{$request->keywords}%");
+        });
+    
         $users = $query->get();
+    
         return view('users.list', compact('users'));
     }
 
@@ -50,6 +69,8 @@ class UsersController extends Controller {
 	    $user->email = $request->email;
 	    $user->password = bcrypt($request->password); //Secure
 	    $user->save();
+
+        $user->assignRole('Customer');
 
         return redirect('/');
     }
@@ -83,6 +104,9 @@ class UsersController extends Controller {
             if(!auth()->user()->hasPermissionTo('show_users')) abort(401);
         }
 
+        $user->load('permissions', 'roles.permissions');
+
+
         $permissions = [];
         foreach($user->permissions as $permission) {
             $permissions[] = $permission;
@@ -93,7 +117,9 @@ class UsersController extends Controller {
             }
         }
 
-        return view('users.profile', compact('user', 'permissions'));
+        $purchases = $user->purchases ?? collect();
+
+        return view('users.profile', compact('user', 'permissions', 'purchases'));
     }
 
     public function edit(Request $request, User $user = null) {
@@ -146,7 +172,7 @@ class UsersController extends Controller {
 
         if(!auth()->user()->hasPermissionTo('delete_users')) abort(401);
 
-        //$user->delete();
+        $user->delete();
 
         return redirect()->route('users');
     }
@@ -185,4 +211,50 @@ class UsersController extends Controller {
 
         return redirect(route('profile', ['user'=>$user->id]));
     }
+
+        public function create()
+    {
+        $roles = \Spatie\Permission\Models\Role::all(); // so you can assign a role
+        return view('users.create', compact('roles'));
+    }
+
+        public function store(Request $request)
+        {
+            $request->validate([
+                'name' => 'required|string|min:5',
+                'email' => 'required|email|unique:users',
+                'password' => ['required', 'confirmed', Password::min(8)],
+                'role' => 'required|exists:roles,name',
+            ]);
+
+            $user = new User();
+            $user->name = $request->name;
+            $user->email = $request->email;
+            $user->password = bcrypt($request->password);
+            $user->save();
+
+            $user->assignRole($request->role);
+
+            return redirect()->route('users')->with('success', 'User created successfully.');
+        }
+
+        public function addCredit(Request $request, User $user)
+        {
+            $request->validate([
+                'credit' => 'required|numeric|min:0',
+            ]);
+
+            $user->credit += $request->credit;
+            $user->save();
+
+            return redirect()->route('profile', ['user' => $user->id])->with('success', 'Credit added successfully!');
+        }
+
+        public function showAddCreditForm(User $user)
+        {
+            return view('users.add_credit', compact('user'));
+        
+        }
+
+    
 } 
